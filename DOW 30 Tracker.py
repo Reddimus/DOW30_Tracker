@@ -1,10 +1,23 @@
+'''
+File: DOW_30_Tracker.py
+By: Kevin Martinez
+
+Description/Goals:
+Data structures & Algorithms project
+• Independently built a Python script to collect and analyze stock market data for the top 30 US companies based
+on market cap in the United States.
+• Visually demonstrated sorting algorithms and key stock data of each company using Matplotlib.
+• Web scraped real-time data of stock prices using Urllib.
+• Improved latency by 300% using Multithreading from the Threading library to access multiple websites at once
+'''
+
 from matplotlib import animation as animation, pyplot as plt 	#visualizer
 from urllib.error import HTTPError	
 import urllib.request 				 # Urllib package is the URL handling module for python.
 import threading # load urls faster	 # It is used to fetch URLs. It uses the urlopen function
-					  				 # and is able to fetch URLs using a variety of different
-					  				 # protocols. if unable to import Urllib simply install it
- 					 				 # using "pip install urllib" in your Command prompt 
+									# and is able to fetch URLs using a variety of different
+									# protocols. if unable to import Urllib simply install it
+									# using "pip install urllib" in your Command prompt 
 
 class sort_artist:
 	def __init__(self, arr, y_idx, ptrs, reverse = False):
@@ -41,10 +54,10 @@ class sort_artist:
 
 	def data_translation(data):
 		if(isinstance(data, float) == True) or (isinstance(data, int) == True):
-		    data = data
+			data = data
 
 		elif data == '-':	# if data is undefined set data to 0
-		    data = 0
+			data = 0
 
 		elif data[-1] == ')':	# if category is "Today's change"
 			temp_perc = ""
@@ -56,45 +69,75 @@ class sort_artist:
 			data = float(temp_perc)
 
 		else: # if data is a string try translating it to float if it is a number or keep as string if it is a word
-		    Temp_data = ""
-		    str_count = 0
-		    # iterate through each character in the string
-		    for idx in range(len(data)):
-		        #save float Key data characters
-		        if (data[idx] == '.') or (data[idx] == '-'):
-		            Temp_data += data[idx]
-		        else:
-		            try: #if str can be converted to float append to Temp_x_float_str
-		                float(data[idx])
-		                Temp_data += data[idx]
-		            except:
-		                str_count += 1   # detected a non-number/ character
+			Temp_data = ""
+			str_count = 0
+			# iterate through each character in the string
+			for idx in range(len(data)):
+				#save float Key data characters
+				if (data[idx] == '.') or (data[idx] == '-'):
+					Temp_data += data[idx]
+				else:
+					try: #if str can be converted to float append to Temp_x_float_str
+						float(data[idx])
+						Temp_data += data[idx]
+					except:
+						str_count += 1   # detected a non-number/ character
 
-		    if(str_count / len(data)) < (0.5):   # if most of the string consists of floats make the string into a number
-		        Mult = 1    # multiplier
-		        if(data[-1] == 'M'):    # if float is in million, billion, or trillion recalculate
-		            Mult = 1_000_000
-		        elif(data[-1] == 'B'):
-		            Mult = 1_000_000_000
-		        elif(data[-1] == 'T'):
-		            Mult = 1_000_000_000_000
-		        data = float(Temp_data) * Mult
+			if(str_count / len(data)) < (0.5):   # if most of the string consists of floats make the string into a number
+				Mult = 1    # multiplier
+				#mult_dict = {'M': 1_000_000, 'B': 1_000_000_000, 'T': 1_000_000_000_000}
+				#mult = mult_dict[data[-1]]
+				if(data[-1] == 'M'):    # if float is in million, billion, or trillion recalculate
+					Mult = 1_000_000
+				elif(data[-1] == 'B'):
+					Mult = 1_000_000_000
+				elif(data[-1] == 'T'):
+					Mult = 1_000_000_000_000
+				data = float(Temp_data) * Mult
 
-		    else:
-		        data = str(data)    # Keep data as a word not a number
+			else:
+				data = str(data)    # Keep data as a word not a number
 		return data
 
 class Web_Scrape:
-	def linear_search(source_code: str, search_str: str, end_data_scrape: str, start_idx: int = 100_000) -> tuple[str, int]:
-	    data = ""	# time complexity: O(n)
-	    for sc_idx in range(start_idx, len(source_code)):						# iterate through entire source code, start_idx skips unimportant parts of the source code
-	        if source_code[sc_idx:sc_idx + len(search_str)] == search_str:		# slicing, compare search_str indexes to source code indexes
-	            sc_idx += len(search_str) 										# if search_str is found in source code copy data from the last recorded source code index + 1 and onward
-	            while source_code[sc_idx] != end_data_scrape: 					# search_str is the HTML code right next the data we want
-	                data += source_code[sc_idx]
-	                sc_idx += 1
-	            data = Web_Scrape.web_translation(data)
-	            return data, sc_idx 	# return scraped data and the last recorded index
+	def sim_score(str_0: str, str_1: str):
+		if str_0[0] == str_1[0]:
+			total = sim_char = score = 1
+			idx = 1
+		else:
+			return 0
+
+		# find shortest str
+		if len(str_0) < len(str_1):
+			shortest = len(str_0)
+		else:
+			shortest = len(str_1)
+
+		# string similarity score algorithm
+		while idx < shortest:
+			if str_0[idx] == str_1[idx]:
+				total += 1
+				sim_char += 1
+				score = sim_char/total
+			else:
+				total += 1
+				score = sim_char/total
+			idx += 1
+		return score
+
+	# T: O(n), M: O(n)
+	def linear_search(src_code: str, srch_str: str, end_char: str, init_idx: int = 75_000) -> tuple[str, int]:
+		data = ""
+		for src_idx in range(init_idx, len(src_code)):						# iterate through entire source code, start_idx skips unimportant parts of the source code
+			curr_str = src_code[src_idx:src_idx + len(srch_str)]
+			#if src_code[src_idx:src_idx + len(srch_str)] == srch_str:			# slicing, compare search_str indexes to source code indexes
+			if Web_Scrape.sim_score(curr_str, srch_str) >= .7 and curr_str[-1] == srch_str[-1]:
+				src_idx += len(srch_str) 											# if search_str is found in source code copy data from the last recorded source code index + 1 and onward
+				while src_code[src_idx] != end_char: 								# search_str is the HTML code right next the data we want
+					data += src_code[src_idx]
+					src_idx += 1
+				data = Web_Scrape.web_translation(data)
+				return data, src_idx 	# return scraped data and the last recorded index
 
 	def web_translation(data):
 		# Dictionary mapping HTML character codes to their corresponding characters
@@ -119,13 +162,14 @@ class Web_Scrape:
 	def open_url(Thread_num, str_url_list):
 		#print("Started Thread_num", Thread_num)
 		indiv_stock_source_code = ""
-		while(len(indiv_stock_source_code) < 190000): # Reload url if all the source code is not loaded
+		while(len(indiv_stock_source_code) < 150_000): # Reload url if all the source code is not loaded
 			try: 
 				Open_Individual_url = urllib.request.urlopen(url_list[Thread_num])
 				content = Open_Individual_url.read()
 			except HTTPError as e: # Error 500 Could not load website
 				content = e.read()
 			indiv_stock_source_code = str(content)
+		#print(indiv_stock_source_code.decode('utf-8'))
 		str_url_list[Thread_num] = indiv_stock_source_code
 
 	def scrape_main(list_len):
@@ -138,38 +182,39 @@ class Web_Scrape:
 			for idx in range(list_len):
 				url_thread[idx].join()
 
-			Skipheader = 100_000
+			Skipheader = 75_000
 			Categories = {
-		    "Company name": 			"<h1 class=\"css-15ltlny\">",
-		    "Current Stock Price": 		"class=\"css-vx2wje\"><span class=\"css-w8p71j\">", 
-		    "Today's change": 			"\"secondary_value\":{\"main\":{\"value\":\"",
-		    "Market cap": 				"Market cap</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "Price-Earnings ratio": 	"Price-Earnings ratio</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "Dividend yield": 			"Dividend yield</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "High today": 				"High today</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "Low today": 				"Low today</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "Open price": 				"Open price</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "Volume": 					"Volume</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "52 wk high": 				"52 Week high</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
-		    "52 wk low": 				"52 Week low</span><div class=\"css-1slfsms\"></div><span class=\"css-o2h1av\">",
+			"Company name": 			"<h1 class=\"css-15ltlny\">",
+			"Current Stock Price": 		"class=\"css-vx2wje\"><span class=\"css-w8p71j\">", 
+			#"Today's change": 			"\"secondary_value\":{\"main\":{\"value\":\"",
+			"Market cap": 				"Market cap</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"Price-Earnings ratio": 	"Price-Earnings ratio</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"Dividend yield": 			"Dividend yield</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"High today": 				"High today</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"Low today": 				"Low today</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"Open price": 				"Open price</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"Volume": 					"Volume</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"52 wk high": 				"52 Week high</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
+			"52 wk low": 				"52 Week low</span><div class=\"css-1slfsms\"></div><span class=\"css-y3z1hq\">",
 			}
 			dataset = []
 			#print("start for loop:")
 			for idx in range(list_len):
-			    Indiv_stock_data = []
-			    Indiv_stock_data.append(symb_arr[idx])
+				Indiv_stock_data = []
+				Indiv_stock_data.append(symb_arr[idx])
 
-			    url_str = str_url_list[idx]
-			    prev_idx = Skipheader	# intialize start_idx
-			    for key, web_value in Categories.items():
-			        if(key != "Today's change"):
-			        	data, prev_idx = Web_Scrape.linear_search(start_idx = prev_idx, source_code = url_str, search_str = web_value, end_data_scrape = "<")
-		        	else:
-		        		data, prev_idx = Web_Scrape.linear_search(start_idx = prev_idx, source_code = url_str, search_str = web_value, end_data_scrape = "\"")
-		        		prev_idx = Skipheader
-			        Indiv_stock_data.append(data)
+				url_str = str_url_list[idx]
+				prev_idx = Skipheader	# intialize start_idx
+				for key, web_val in Categories.items():
+					if(key != "Today's change"):
+						data, prev_idx = Web_Scrape.linear_search(init_idx = prev_idx, src_code = url_str, srch_str = web_val, end_char = "<")
+						prev_idx = Skipheader
+					else:
+						data, prev_idx = Web_Scrape.linear_search(init_idx = prev_idx, src_code = url_str, srch_str = web_val, end_char = "\"")
+						prev_idx = Skipheader
+					Indiv_stock_data.append(data)
 
-			    dataset.append(Indiv_stock_data)
+				dataset.append(Indiv_stock_data)
 		except:
 			pass
 		return dataset
@@ -221,7 +266,7 @@ list_len = 30
 symb_arr = []
 prev_i = 100_000
 for stock in range(list_len):
-	temp_arr, prev_i = Web_Scrape.linear_search(start_idx = prev_i, source_code = Dow_30_Source_code, search_str = "{\"symbol\":\"", end_data_scrape = "\"")
+	temp_arr, prev_i = Web_Scrape.linear_search(init_idx = prev_i, src_code = Dow_30_Source_code, srch_str = "{\"symbol\":\"", end_char = "\"")
 	symb_arr.append(temp_arr)
 # Search on the web for more information about these companies by using their symbol
 url_list = []
@@ -234,7 +279,8 @@ for idx in range(len(dataset)):
 	print(dataset[idx])
 
 Array_categories = ['Stock symbol', 'Company name', '1D Stock Price', '1D Percent', 'Market cap', 'Price-Earnings ratio',  'Dividend yield', 'High today', 'Low today', 'Open price', 'Volume', '52 week high',  '52 week low']
-collabel = ('Symb', 'Cmpny', 'Price', 'Change', 'Mkt cap', 'PE ratio',  'Dvd', 'High 1D', 'Low 1D', 'Open $', 'Vol', '52 wk high',  '52 wk low')
+#collabel = ('Symb', 'Cmpny', 'Price', 'Change', 'Mkt cap', 'PE ratio',  'Dvd', 'High 1D', 'Low 1D', 'Open $', 'Vol', '52 wk high',  '52 wk low')
+collabel = ('Symb', 'Cmpny', 'Price', 'Mkt cap', 'PE ratio',  'Dvd', 'High 1D', 'Low 1D', 'Open $', 'Vol', '52 wk high',  '52 wk low')
 rowlabel = [i for i in range(1, 31)] 
 in_category = 6 	#default category is in idx 2 which is stock price
 #Selected_Vector = dataset[in_category]
