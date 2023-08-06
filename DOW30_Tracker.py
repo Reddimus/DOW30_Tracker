@@ -19,6 +19,7 @@ Data structures & Algorithms project
 
 import pandas as pd
 import requests
+import matplotlib
 import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.animation
@@ -110,13 +111,15 @@ class Visualization:
         self.start_time = time.time()
         self.eastern = pytz.timezone('US/Eastern')
         self.now = datetime.datetime.now(self.eastern)
+        self.ani = None
 
     # Methods related to sorting
     def get_ptrs(self) -> tuple:
         return (self.l_ptr, self.r_ptr)
 
     def brute_sort(self) -> None:
-        # Implementing the bubble sort logic from sort_artist class
+        # Implementing the bubble sort logic
+        # T: O(n^2) S: O(1), where n is the number of elements in the list
         for l_idx in range(self.l_ptr, len(self.data) - 1):
             for r_idx in range(self.l_ptr + 1, len(self.data)):
                 if l_idx < r_idx and self.data.at[l_idx, self.sort_by] > self.data.at[r_idx, self.sort_by] and not self.reverse:
@@ -127,14 +130,15 @@ class Visualization:
                     self.data.loc[l_idx], self.data.loc[r_idx] = self.data.loc[r_idx], self.data.loc[l_idx]
                     self.l_ptr, self.r_ptr = l_idx, r_idx
                     return
-        self.set_sorted(True)
+        # if no swaps were made, then the list is sorted
+        self.set_sorted(sorted_status=True, l_ptr=0, r_ptr=0)
 
     def is_sorted(self) -> bool:
         return self.sorted
 
-    def set_sorted(self, sorted_status) -> None:
+    def set_sorted(self, sorted_status, l_ptr: int = 0, r_ptr: int = 0) -> None:
         self.sorted = sorted_status
-        self.l_ptr, self.r_ptr = 0, 0
+        self.l_ptr, self.r_ptr = l_ptr, r_ptr
 
     # Methods related to visualization
     def animate(self, frame: int) -> None:
@@ -144,7 +148,7 @@ class Visualization:
             print("Updating database...")
             self.start_time = time.time()
             self.dow_data.update_stock_prices()    # update every minute
-            self.set_sorted(False)
+            self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
             # print dataframe with only symbol and stock price columns
             print(self.data[['Symbol', 'Stock Price']])
         elif not self.is_sorted():
@@ -163,14 +167,27 @@ class Visualization:
                 x_ticks[r].set_text(self.data.at[r, 'Symbol'])
                 self.ax.set_xticklabels(x_ticks)
 
-    def display(self) -> None:
+    def display(self, fullscreen: bool = False, tight_layout: bool = True) -> None:
         # Logic to display the plot
+        if tight_layout:
+            matplotlib.pyplot.tight_layout()
+        if fullscreen:
+            matplotlib.pyplot.get_current_fig_manager().window.state('zoomed')
+        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=75, cache_frame_data=False)
         matplotlib.pyplot.show()
 
-    def prepare_bars(self, x_axis: str, y_axis: str) -> None:
+    def record(self, filename: str = "DOW30_Tracker.gif", fps: int = 60, aspect_ratio: tuple = (16, 9)) -> None:
+        self.fig.set_size_inches(aspect_ratio[0], aspect_ratio[1])
+        matplotlib.pyplot.tight_layout()
+        # make 16:9 aspect ratio
+        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=1, cache_frame_data=True, frames=841)
+        # saving the animation as a gif
+        self.ani.save(filename, writer=matplotlib.animation.PillowWriter(fps=fps))
+
+    def prepare_bars(self) -> None:
         # Logic to create bars for the visualization
-        self.bars = self.ax.bar(self.data[x_axis], self.data[y_axis], color='black', edgecolor='blue')
-        matplotlib.pyplot.title('DOW 30 Companies Sorted by ' + y_axis)
+        self.bars = self.ax.bar(self.data['Symbol'], self.data[self.sort_by], color='black', edgecolor='blue')
+        matplotlib.pyplot.title('DOW 30 Companies Sorted by ' + self.sort_by)
         self.ax.xaxis.set_major_locator(matplotlib.ticker.FixedLocator(range(len(self.data))))
 
 # Main Execution Flow
@@ -183,6 +200,6 @@ if __name__ == "__main__":
     dow_data.df.to_csv('DOW30_database.csv', index=False)
 
     viz = Visualization(dow_data, 'Stock Price')
-    viz.prepare_bars('Symbol', 'Stock Price')
-    ani = matplotlib.animation.FuncAnimation(viz.fig, viz.animate, interval=50, cache_frame_data=False)
-    viz.display()
+    viz.prepare_bars()
+    #viz.record(filename="DOW30_Tracker.gif")
+    viz.display(fullscreen=True)
