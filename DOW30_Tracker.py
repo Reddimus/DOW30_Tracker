@@ -12,7 +12,7 @@ Data structures & Algorithms project
 - Animate sorted bar graph of the DOW 30 companies `y` axis
     - `x` axis is the company ticker
     - `y` axis is category chosen
-    - Sort by category chosen
+    - Sort by category chosen using buttons
     - Update every minute if within trading hours (9:30am - 4:00pm EST) and Monday - Friday
 - Visualize brute force/bubble sort of the DOW 30 companies
 '''
@@ -23,6 +23,7 @@ import matplotlib
 import matplotlib.pyplot
 import matplotlib.ticker
 import matplotlib.animation
+import matplotlib.widgets
 import datetime
 import pytz
 import time
@@ -112,6 +113,7 @@ class Visualization:
         self.eastern = pytz.timezone('US/Eastern')
         self.now = datetime.datetime.now(self.eastern)
         self.ani = None
+        self.bttns_list = []    # Store all button objects here to prevent garbage collection
 
     # Methods related to sorting
     def get_ptrs(self) -> tuple:
@@ -144,13 +146,16 @@ class Visualization:
     def animate(self, frame: int) -> None:
         elapsed_time = int(time.time() - self.start_time)
         # if within trading hours (9:30am - 4:00pm EST) and Monday - Friday
-        if elapsed_time >= 10 and self.is_sorted() and self.now.weekday() < 5 and (9 <= self.now.hour <= 16):
+        if elapsed_time >= 60 and self.is_sorted() and self.now.weekday() < 5 and (9 <= self.now.hour <= 16):
             print("Updating database...")
             self.start_time = time.time()
             self.dow_data.update_stock_prices()    # update every minute
+            # set new category data ('Stock Price' etc.) and xtick labels to bar graph
+            self.ax.set_xticklabels(self.data['Symbol'])
+            [self.bars[i].set_height(self.data.at[i, self.sort_by]) if self.bars[i].get_height() != self.data.at[i, self.sort_by] else None for i in range(len(self.data))]
             self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
             # print dataframe with only symbol and stock price columns
-            print(self.data[['Symbol', 'Stock Price']])
+            print(self.data[['Symbol', self.sort_by]])
         elif not self.is_sorted():
             l, r = self.get_ptrs()
             self.bars[l].set_color('black')
@@ -158,8 +163,8 @@ class Visualization:
             self.brute_sort()
             if not self.is_sorted():
                 l, r = self.get_ptrs()
-                self.bars[l].set_height(self.data.at[l, 'Stock Price'])
-                self.bars[r].set_height(self.data.at[r, 'Stock Price'])
+                self.bars[l].set_height(self.data.at[l, self.sort_by])
+                self.bars[r].set_height(self.data.at[r, self.sort_by])
                 self.bars[l].set_color('red')
                 self.bars[r].set_color('red')
                 x_ticks = self.ax.get_xticklabels()
@@ -167,28 +172,60 @@ class Visualization:
                 x_ticks[r].set_text(self.data.at[r, 'Symbol'])
                 self.ax.set_xticklabels(x_ticks)
 
-    def display(self, fullscreen: bool = False, tight_layout: bool = True) -> None:
+    def bttn_cat_callback(self, event: matplotlib.backend_bases.MouseEvent) -> None:
+        # get button's name
+        bttn_name = event.inaxes.button_name
+        # if button is already selected, then reverse the sort
+        if bttn_name == self.sort_by:
+            self.reverse = not self.reverse
+        # else sort by the button's category
+        else:
+            self.sort_by = bttn_name
+        # Change y axis limit in bar graph
+        bottom_lim = 0
+        if min(self.data[self.sort_by]) < 0:
+            bottom_lim = -(abs(min(self.data[self.sort_by])) * 1.1)
+        self.ax.set_ylim(bottom_lim, max(self.data[self.sort_by]) * 1.1)
+        [self.bars[i].set_height(self.data.at[i, self.sort_by]) for i in range(len(self.data))]
+        self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
+        
+    def button(self, x_pos: int, button_name: str = 'Dummy Button') -> None:
+        # Define the button's location an dsize
+        bttn_axs = matplotlib.pyplot.axes([x_pos, 0.04, 0.08, 0.04])  # x, y, width, height
+        bttn_axs.button_name = button_name
+        bttn = matplotlib.widgets.Button(ax=bttn_axs, label=button_name)
+        bttn.on_clicked(self.bttn_cat_callback)
+        self.bttns_list.append(bttn)    # append buttons to list to prevent garbage collection
+
+    def init_buttons(self) -> None:
+        # Logic to initialize all category buttons
+        categories = [col for col in self.data.columns if col not in ['Symbol', 'Company']]
+        equal_dist = (0.1 + 0.8) / len(categories)
+        [self.button(0.1 + (idx * equal_dist), cat) for idx, cat in enumerate(categories)]
+
+    def display(self, fullscreen: bool = False) -> None:
         # Logic to display the plot
-        if tight_layout:
-            matplotlib.pyplot.tight_layout()
         if fullscreen:
             matplotlib.pyplot.get_current_fig_manager().window.state('zoomed')
-        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=75, cache_frame_data=False)
+        #matplotlib.pyplot.ion()  # Turn on interactive mode
+        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=1, cache_frame_data=True, frames=841, blit=False)
+        self.init_buttons()
         matplotlib.pyplot.show()
 
     def record(self, filename: str = "DOW30_Tracker.gif", fps: int = 60, aspect_ratio: tuple = (16, 9)) -> None:
         self.fig.set_size_inches(aspect_ratio[0], aspect_ratio[1])
-        matplotlib.pyplot.tight_layout()
         # make 16:9 aspect ratio
-        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=1, cache_frame_data=True, frames=841)
+        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=75, cache_frame_data=True, frames=841)
         # saving the animation as a gif
         self.ani.save(filename, writer=matplotlib.animation.PillowWriter(fps=fps))
 
-    def prepare_bars(self) -> None:
+    def init_bar_graph(self) -> None:
         # Logic to create bars for the visualization
         self.bars = self.ax.bar(self.data['Symbol'], self.data[self.sort_by], color='black', edgecolor='blue')
-        matplotlib.pyplot.title('DOW 30 Companies Sorted by ' + self.sort_by)
+        matplotlib.pyplot.ylim(0, max(self.data[self.sort_by]) * 1.1)
+        matplotlib.pyplot.title('DOW 30 Companies Sorted by ' + self.sort_by + '     Date: ' + self.now.strftime("%m/%d/%Y"))
         self.ax.xaxis.set_major_locator(matplotlib.ticker.FixedLocator(range(len(self.data))))
+        matplotlib.pyplot.tight_layout(rect=[0, 0.1, 1, 1])
 
 # Main Execution Flow
 if __name__ == "__main__":
@@ -200,6 +237,6 @@ if __name__ == "__main__":
     dow_data.df.to_csv('DOW30_database.csv', index=False)
 
     viz = Visualization(dow_data, 'Stock Price')
-    viz.prepare_bars()
+    viz.init_bar_graph()
     #viz.record(filename="DOW30_Tracker.gif")
-    viz.display(fullscreen=True)
+    viz.display(fullscreen=False)
