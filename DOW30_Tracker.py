@@ -12,7 +12,7 @@ Data structures & Algorithms project
 - Animate sorted bar graph of the DOW 30 companies `y` axis
     - `x` axis is the company ticker
     - `y` axis is category chosen
-    - Sort by category chosen
+    - Sort by category chosen using buttons
     - Update every minute if within trading hours (9:30am - 4:00pm EST) and Monday - Friday
 - Visualize brute force/bubble sort of the DOW 30 companies
 '''
