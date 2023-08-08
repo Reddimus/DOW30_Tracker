@@ -66,10 +66,10 @@ class Dow30Data:
 
     def get_stock_info(self, ticker: str, idx: int) -> None:
         # logic to get stock info like dividend yield, market cap, etc.
-        stk = yfinance.Ticker(ticker)
-        self.df.at[idx, 'Dividend Yield'] = round(stk.info.get('dividendYield', 0) * 100, 2)
-        self.df.at[idx, 'Market Cap'] = stk.info.get('marketCap', 0)
-        self.df.at[idx, '52 Week Change'] = round(stk.info.get('52WeekChange', 0) * 100, 2)
+        stk_info = yfinance.Ticker(ticker).info
+        self.df.at[idx, 'Dividend Yield'] = round(stk_info.get('dividendYield', 0) * 100, 2)
+        self.df.at[idx, 'Market Cap'] = stk_info.get('marketCap', 0)
+        self.df.at[idx, '52 Week Change'] = round(stk_info.get('52WeekChange', 0) * 100, 2)
 
     def update_stock_info(self) -> None:
         # logic to update stock info using multithreading.
@@ -84,9 +84,9 @@ class Dow30Data:
 
     def get_stock_price(self, ticker: str, idx: int) -> None:
         # logic to get stock price and 1D % Growth.
-        stk = yfinance.Ticker(ticker)
-        self.df.at[idx, 'Stock Price'] = round(stk.history(period="1d")['Close'][0], 2)
-        self.df.at[idx, '1D % Growth'] = round(stk.history(period="2d")['Close'].pct_change().iloc[-1] * 100, 2)
+        stk_hist = yfinance.Ticker(ticker).history(period="2d")['Close']
+        self.df.at[idx, 'Stock Price'] = round(stk_hist.iloc[-1], 2)
+        self.df.at[idx, '1D % Growth'] = round(stk_hist.iloc[-1] / stk_hist.iloc[-2] * 100 - 100, 2)
 
     def update_stock_prices(self) -> None:
         # logic to update stock prices using multithreading.
@@ -150,11 +150,8 @@ class Visualization:
             print("Updating database...")
             self.start_time = time.time()
             self.dow_data.update_stock_prices()    # update every minute
-            # set new category data ('Stock Price' etc.) and xtick labels to bar graph
-            self.ax.set_xticklabels(self.data['Symbol'])
-            [self.bars[i].set_height(self.data.at[i, self.sort_by]) if self.bars[i].get_height() != self.data.at[i, self.sort_by] else None for i in range(len(self.data))]
-            self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
-            # print dataframe with only symbol and stock price columns
+            self.update_all_bars()
+            # print dataframe with only symbol and category selected
             print(self.data[['Symbol', self.sort_by]])
         elif not self.is_sorted():
             l, r = self.get_ptrs()
@@ -172,6 +169,19 @@ class Visualization:
                 x_ticks[r].set_text(self.data.at[r, 'Symbol'])
                 self.ax.set_xticklabels(x_ticks)
 
+    def update_all_bars(self) -> None:
+        bottom_lim = 0
+        min_cat_val = min(self.data[self.sort_by])
+        if min_cat_val < 0:
+            bottom_lim = -(abs(min_cat_val) * 1.1)
+        self.ax.set_ylim(bottom_lim, max(self.data[self.sort_by]) * 1.1)
+        for stk in range(len(self.data)):
+            if self.bars[stk].get_facecolor() != 'black':
+                self.bars[stk].set_color('black')
+            self.bars[stk].set_height(self.data.at[stk, self.sort_by])
+        self.ax.set_xticklabels(self.data['Symbol'])
+        self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
+
     def bttn_cat_callback(self, event: matplotlib.backend_bases.MouseEvent) -> None:
         # get button's name
         bttn_name = event.inaxes.button_name
@@ -181,17 +191,12 @@ class Visualization:
         # else sort by the button's category
         else:
             self.sort_by = bttn_name
-        # Change y axis limit in bar graph
-        bottom_lim = 0
-        if min(self.data[self.sort_by]) < 0:
-            bottom_lim = -(abs(min(self.data[self.sort_by])) * 1.1)
-        self.ax.set_ylim(bottom_lim, max(self.data[self.sort_by]) * 1.1)
-        [self.bars[i].set_height(self.data.at[i, self.sort_by]) for i in range(len(self.data))]
-        self.set_sorted(sorted_status=False, l_ptr=0, r_ptr=0)
+        # Update new category data w/ xtick labels to bar graph all at once/ins5tantly
+        self.update_all_bars()
         
-    def button(self, x_pos: int, button_name: str = 'Dummy Button') -> None:
+    def category_button(self, x_pos: int, button_name: str = 'Dummy Button') -> None:
         # Define the button's location an dsize
-        bttn_axs = matplotlib.pyplot.axes([x_pos, 0.04, 0.08, 0.04])  # x, y, width, height
+        bttn_axs = matplotlib.pyplot.axes([x_pos, 0.04, 0.1, 0.04])  # x, y, width, height
         bttn_axs.button_name = button_name
         bttn = matplotlib.widgets.Button(ax=bttn_axs, label=button_name)
         bttn.on_clicked(self.bttn_cat_callback)
@@ -201,14 +206,14 @@ class Visualization:
         # Logic to initialize all category buttons
         categories = [col for col in self.data.columns if col not in ['Symbol', 'Company']]
         equal_dist = (0.1 + 0.8) / len(categories)
-        [self.button(0.1 + (idx * equal_dist), cat) for idx, cat in enumerate(categories)]
+        [self.category_button(0.1 + (idx * equal_dist), cat) for idx, cat in enumerate(categories)]
 
     def display(self, fullscreen: bool = False) -> None:
         # Logic to display the plot
         if fullscreen:
             matplotlib.pyplot.get_current_fig_manager().window.state('zoomed')
         #matplotlib.pyplot.ion()  # Turn on interactive mode
-        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=1, cache_frame_data=True, frames=841, blit=False)
+        self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=75, cache_frame_data=True, frames=841, blit=False)
         self.init_buttons()
         matplotlib.pyplot.show()
 
