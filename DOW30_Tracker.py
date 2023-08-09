@@ -104,7 +104,7 @@ class Visualization:
         self.dow_data = dow_data
         self.sort_by = sort_by
         self.reverse = reverse
-        self.fig, self.ax = matplotlib.pyplot.subplots(figsize=(12, 8))
+        self.fig, self.ax = matplotlib.pyplot.subplots(figsize=(16, 9))
         self.bars = None
         self.sorted = False
         self.l_ptr = 0
@@ -191,6 +191,8 @@ class Visualization:
         # else sort by the button's category
         else:
             self.sort_by = bttn_name
+        # update title
+        self.ax.set_title('DOW 30 Companies Sorted by ' + self.sort_by + '     Date: ' + self.now.strftime("%m/%d/%Y"))
         # Update new category data w/ xtick labels to bar graph all at once/ins5tantly
         self.update_all_bars()
         
@@ -211,6 +213,7 @@ class Visualization:
     def display(self, fullscreen: bool = False) -> None:
         # Logic to display the plot
         if fullscreen:
+            # windowed fullscreen
             matplotlib.pyplot.get_current_fig_manager().window.state('zoomed')
         #matplotlib.pyplot.ion()  # Turn on interactive mode
         self.ani = matplotlib.animation.FuncAnimation(self.fig, self.animate, interval=75, cache_frame_data=True, frames=841, blit=False)
@@ -244,4 +247,4 @@ if __name__ == "__main__":
     viz = Visualization(dow_data, 'Stock Price')
     viz.init_bar_graph()
     #viz.record(filename="DOW30_Tracker.gif")
-    viz.display(fullscreen=False)
+    viz.display(fullscreen=True)
